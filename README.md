@@ -1,18 +1,36 @@
 # CMU-15640-25Fall
 # Distributed Systems
-[Prof. Miller](https://heather.miller.am/) | Associate Professor of Computer Science in CMU
+[Prof. Miller](https://heather.miller.am/) | Associate Professor of Computer Science at CMU
 
-[Prof. Zheng](https://wzheng.github.io/) | Associate Professor of Computer Science in CMU
+[Prof. Zheng](https://wzheng.github.io/) | Associate Professor of Computer Science at CMU
 
-[Course Official Website](hhttps://www.composablesystems.org/15-440/fa2025/) | [Course GitHub Site](https://github.com/15-440) | [CMU SCS Description](https://www.csd.cs.cmu.edu/course/15640/f25)
+[Course Official Website](https://www.composablesystems.org/15-440/fa2025/) | [Course GitHub Site](https://github.com/15-440) | [CMU SCS Description](https://www.csd.cs.cmu.edu/course/15640/f25)
 
-## Lab0: Introduction to Go concurrency and testing
+## Proj0: KV Messaging Systems & Go Testing
+Projet0 focuses on giving us a introduction to Go programming and testsing, which will be further used in all later projects
+- **Key Words:** Go subroutine, mulit-thread programming, socket programming, Go-style synchronization control, key-value database server, Go testing, etc.
 
-## Lab1: Distributed Bitcoin Miner
+### Part A
+Part A of Proj0 is to implement the backend, a key-value database server, of a simple online messaging system, where every clients can read or modify every other clients' messages. 
 
-## Lab2: The Raft Consensus Algorithm
+My solution has the following features included:
+1. Server Characteristics: Put(K string, V []byte), Get(K string) []([]byte), Delete(K string), Update(K string, V1 []byte, V2 []byte)
+2. Concurrent requirements: There are **no race conditions** when accessing the database server, which guarantees the safety and liveness of the backend.
+3. Synchronization control: All synchronizations are done by using **goroutines, channels, and Go’s channel-based select statement with not locks and mutexes**.
 
-## Lab3: CMUD
+### Part B
+Part B of Proj0 is to write Go-style test cases for testsing a Squarer, which transforms a channel of integers to a channel that transmits the squares of those integers.
+
+There is one correct implementation provided which satifies all requirments in the API doc and **we should write our own Go test cases to test each properties descriped against the correct one.**
+
+## Proj1: Distributed Bitcoin Miner
+### Part A
+
+### Part B
+
+## Proj2: The Raft Consensus Algorithm
+[Paper](https://raft.github.io/raft.pdf) | [Site](https://raft.github.io/) | [Illustration](https://thesecretlivesofdata.com/raft/)
+## Proj3: CMUD
 
 
 # Disclaimer
