@@ -4,7 +4,7 @@
 
 [Prof. Zheng](https://wzheng.github.io/) | Associate Professor of Computer Science in CMU
 
-[Course Official Website](hhttps://www.composablesystems.org/15-440/fa2025/) | [Course GitHub Site](https://github.com/15-440)| [CMU SCS Description](https://www.csd.cs.cmu.edu/course/15640/f25)
+[Course Official Website](hhttps://www.composablesystems.org/15-440/fa2025/) | [Course GitHub Site](https://github.com/15-440) | [CMU SCS Description](https://www.csd.cs.cmu.edu/course/15640/f25)
 
 ## Lab0: Introduction to Go concurrency and testing
 
