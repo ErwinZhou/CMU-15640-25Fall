@@ -1,0 +1,12 @@
+[submodule "golab"]
+	path = golab
+	url = git@github.com:15-440/p0-15440-f25-ErwinZhou.git
+[submodule "miner"]
+	path = miner
+	url = git@github.com:15-440/p1-15440-f25-orz.git
+[submodule "raft"]
+	path = raft
+	url = git@github.com:15-440/p2-15440-f25-ErwinZhou
+[submodule "cmud"]
+	path = cmud
+	url = git@github.com:15-440/p3-15440-f25-terraria_rules
