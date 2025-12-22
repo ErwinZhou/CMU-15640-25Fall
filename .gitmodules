@@ -10,3 +10,6 @@
 [submodule "cmud"]
 	path = cmud
 	url = git@github.com:15-440/p3-15440-f25-terraria_rules
+[submodule "hw"]
+	path = hw
+	url = git@github.com:ErwinZhou/CMU-15640-25Fall-HW-EXAM.git
