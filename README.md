@@ -10,6 +10,24 @@
 Projet0 focuses on giving us an introduction to Go programming and testsing, which will be further used in all later projects.
 - **Key Words:** Go subroutine, mulit-thread programming, socket programming, Go-style synchronization control, key-value database server, Go testing, etc.
 
+### Architecture
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+flowchart LR
+    C["Clients"] -->|"Put / Get / Delete / Update"| DISP["Dispatcher<br/>goroutine + select"]
+    DISP <-->|"channels only · no mutex"| OWN["Owner goroutine"]
+    OWN --> KV[("Key → values")]
+    class C client
+    class DISP,OWN control
+    class KV store
+    classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
+    classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+```
+*A single owner goroutine holds the key-value map; every client request is serialized through channels and a `select` loop — **no locks or mutexes** — eliminating data races by construction.*
+
+> **Infra highlights:** built a concurrent key-value server on Go's CSP model (goroutines + channels + `select`), achieving race-free safety and liveness without shared-memory locking; wrote property-based Go tests validating each behavior against a reference implementation.
+
 ### Part A
 Part A of Proj0 is to implement the backend, a key-value database server, of a simple online messaging system, where every clients can read or modify every other clients' messages. 
 
@@ -26,6 +44,49 @@ There is one correct implementation provided which satifies all requirments in t
 ## Proj1: Distributed Bitcoin Miner
 Proj1 focuses on building a reliable distributed system on top of unreliable networks. The project is divided into two parts: implementing a reliable message delivery protocol over UDP, and then using it to build a fault-tolerant distributed Bitcoin mining system.
 - **Key Words:** Multi-thread programming, Go-style synchronization control, reliable messaging, UDP-based protocol, sliding window, epoch-based retransmission, exponential backoff, distributed systems, fault tolerance, load balancing, Bitcoin, crypto cocurrency, etc.
+
+### System Architecture
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+flowchart TB
+    subgraph APPL["Application · distributed mining"]
+        direction LR
+        CL["Client<br/>[data, nonce range]"]
+        SC["Server scheduler<br/>chunk split · load balance<br/>reassign on miner loss"]
+        M1["Miner"]
+        M2["Miner"]
+        M3["Miner"]
+        CL -->|request| SC
+        SC -->|chunk| M1
+        SC -->|chunk| M2
+        SC -->|chunk| M3
+        M1 -->|min hash| SC
+        M2 -->|min hash| SC
+        M3 -->|min hash| SC
+        SC -->|result| CL
+    end
+    subgraph LSPL["LSP reliable layer · over UDP"]
+        direction LR
+        W["Sliding window<br/>in-order · exactly-once"]
+        E["Epoch retransmit<br/>exp. backoff · heartbeat"]
+        CK["16-bit checksum"]
+    end
+    SC -. "all messages via LSP" .-> W
+    LSPL <--> UDP["UDP"]
+    class CL client
+    class SC control
+    class M1,M2,M3 data
+    class W,E,CK store
+    class UDP ink
+    classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
+    classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
+    classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+    classDef ink fill:#ededec,stroke:#57534e,color:#292524;
+```
+*Every message rides on **LSP**, a custom reliable protocol over UDP (sliding window, epoch retransmission with exponential backoff, heartbeats, checksums). On top of it, a scheduler splits mining jobs into nonce-range chunks, load-balances them across miners, and reassigns work when a miner fails.*
+
+> **Infra highlights:** engineered a reliable, exactly-once messaging layer over lossy UDP and used it to build a fault-tolerant compute scheduler — chunked work distribution, dynamic load balancing, and automatic task reassignment on worker failure — the core pattern behind distributed job queues and map-reduce-style systems.
 
 ### Part A: Live Sequence Protocol (LSP)
 Part A of Proj1 is to implement the **Live Sequence Protocol (LSP)**, a custom reliable client-server messaging protocol built on top of UDP. LSP provides in-order, exactly-once message delivery with connection management, failure talorance mechanisms, and retransmission logic.
@@ -67,6 +128,50 @@ Proj2 focuses on implementing the **Raft consensus algorithm**, a replicated sta
 The goal of this project is to build a fully functioning Raft module in Go that maintains a replicated log, supports leader election, log replication, and safely applies committed commands to an external service.
 - **Key Words:** Consensus algorithm, replicated state machine, leader election, log replication, fault tolerance, RPC, concurrency control.
 
+### System Architecture
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+flowchart TB
+    CLI["Service / client"]
+    subgraph CLUSTER["Raft cluster · RPC"]
+        direction LR
+        L["Leader<br/>append · replicate · commit"]
+        F1["Follower"]
+        F2["Follower"]
+        L -->|"AppendEntries<br/>prevLogIndex / Term"| F1
+        L -->|"AppendEntries"| F2
+        F1 -.->|"vote / ack"| L
+        F2 -.->|"vote / ack"| L
+    end
+    CLI -->|command| L
+    L --> LOG[("Replicated log")]
+    LOG -->|"majority ⇒ commit"| AP["applyCh → state machine"]
+    AP --> CLI
+    class CLI client
+    class L control
+    class F1,F2 data
+    class LOG store
+    class AP ink
+    classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
+    classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
+    classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+    classDef ink fill:#ededec,stroke:#57534e,color:#292524;
+```
+*Clients submit commands to the elected **leader**, which replicates log entries to followers via `AppendEntries`; once a majority persists an entry it is committed and applied in order through `applyCh`. Server roles transition on timeouts and terms:*
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, sans-serif","lineColor":"#8f8b82","labelBackgroundColor":"#f6f4ee","primaryColor":"#dde5ee","primaryBorderColor":"#5b7290","primaryTextColor":"#2b3a4d"}}}%%
+stateDiagram-v2
+    [*] --> Follower
+    Follower --> Candidate: election timeout
+    Candidate --> Leader: majority votes
+    Candidate --> Follower: higher term / new leader
+    Candidate --> Candidate: split vote → retry
+    Leader --> Follower: higher term seen
+```
+
+> **Infra highlights:** implemented the Raft consensus algorithm end-to-end — randomized leader election, log replication with `(prevLogIndex, prevLogTerm)` consistency checks, majority-commit, and safe state-machine application — holding safety and liveness under crashes, message loss, and reordering. This is the same protocol behind etcd, Consul, and CockroachDB.
+
 ### Part A: Leader Election & Heartbeats
 Part A of Proj2 is to implement **leader election** and **heartbeat mechanisms** in Raft. Each server can dynamically transition between follower, candidate, and leader states based on timeouts and RPC communication.
 
@@ -96,6 +201,56 @@ Proj3 focuses on building a **globally distributed, highly available key-value s
 
 The project emphasizes scalable system design, actor-based concurrency, and eventual consistency across geographically distributed replicas.
 - **Key Words:** Actor model, distributed key-value store, eventual consistency, last-writer-wins, RPC, geodistributed systems, scalable backend services.
+
+### System Architecture
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+flowchart TB
+    subgraph CLNT["kvclient · load-balanced"]
+        C["Get / Put / List<br/>DNS-style routing"]
+    end
+    subgraph SA["Server A · region 1"]
+        direction LR
+        A0["Query actor 0<br/>full replica"]
+        A1["Query actor 1<br/>full replica"]
+        A0 <-->|"local sync"| A1
+    end
+    subgraph SB["Server B · region 2"]
+        direction LR
+        B0["Query actor 0"]
+        B1["Query actor 1"]
+        B0 <-->|"local sync"| B1
+    end
+    C -->|RPC| A0
+    C -->|RPC| B0
+    A0 -. "remote sync" .-> B0
+    A0 --> KV[("KV + wall-clock ts")]
+    KV -.->|"conflict → LWW (ts, uid)"| KV
+    class C client
+    class A0,A1,B0,B1 data
+    class KV store
+    classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
+    classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+```
+*Each server runs one **query actor per CPU core**, each holding a full replica and answering reads from local state for low latency. Actors converge through background **local sync** (same server) and **remote sync** (across regions), resolving conflicts by last-writer-wins on a wall-clock timestamp with an actor-uid tiebreaker. The client load-balances across servers/actors like DNS-based routing.*
+
+The actor runtime is shared-nothing — mailboxes + RPC, no locks or shared memory:
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+flowchart LR
+    T["Tell(msg)"] --> MB[("Mailbox<br/>FIFO · unbounded")]
+    MB --> ACT["Actor.OnMessage<br/>sequential · shared-nothing"]
+    ACT -.->|"remote_tell · gob RPC"| REM["Remote actor"]
+    class T client
+    class MB store
+    class ACT,REM data
+    classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
+    classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+```
+
+> **Infra highlights:** designed a geo-distributed, highly available NoSQL key-value store on an Akka-style actor model — shared-nothing concurrency, per-core replicas for horizontal scale, and eventually-consistent last-writer-wins replication across regions — directly engaging the availability/latency-vs-consistency tradeoffs at the heart of real distributed databases.
 
 ### Backend Storage System
 The core of Proj3 is to implement the **backend storage system** used by the CMUD game. The system provides a simple NoSQL key-value API supporting `Get`, `Put`, and `List` operations.
