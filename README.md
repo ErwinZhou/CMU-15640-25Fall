@@ -12,17 +12,19 @@ Projet0 focuses on giving us an introduction to Go programming and testsing, whi
 
 ### Architecture
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee"}}}%%
 flowchart LR
-    C["Clients"] -->|"Put / Get / Delete / Update"| DISP["Dispatcher<br/>goroutine + select"]
-    DISP <-->|"channels only · no mutex"| OWN["Owner goroutine"]
-    OWN --> KV[("Key → values")]
+    C["Clients"] -->|"Put / Get<br/>Del / Update"| DISP["Dispatcher<br/>goroutine + select"]
+    DISP <-->|"channels only<br/>(no mutex)"| OWN["Owner<br/>goroutine"]
+    OWN --> KV[("Key -> values")]
     class C client
     class DISP,OWN control
     class KV store
     classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
     classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
+    classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
     classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+    classDef ink fill:#ededec,stroke:#57534e,color:#292524;
 ```
 *A single owner goroutine holds the key-value map; every client request is serialized through channels and a `select` loop — **no locks or mutexes** — eliminating data races by construction.*
 
@@ -47,36 +49,31 @@ Proj1 focuses on building a reliable distributed system on top of unreliable net
 
 ### System Architecture
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee"}}}%%
 flowchart TB
-    subgraph APPL["Application · distributed mining"]
+    subgraph APPL["Application: distributed mining"]
         direction LR
-        CL["Client<br/>[data, nonce range]"]
-        SC["Server scheduler<br/>chunk split · load balance<br/>reassign on miner loss"]
+        CL["Client<br/>data + range"]
+        SC["Server scheduler<br/>chunk split<br/>load balance<br/>reassign on loss"]
         M1["Miner"]
         M2["Miner"]
         M3["Miner"]
-        CL -->|request| SC
-        SC -->|chunk| M1
-        SC -->|chunk| M2
-        SC -->|chunk| M3
-        M1 -->|min hash| SC
-        M2 -->|min hash| SC
-        M3 -->|min hash| SC
-        SC -->|result| CL
+        CL -->|"request"| SC
+        SC -->|"chunk"| M1
+        SC -->|"chunk"| M2
+        SC -->|"chunk"| M3
+        M1 -->|"result"| SC
+        M2 -->|"result"| SC
+        M3 -->|"result"| SC
+        SC -->|"result"| CL
     end
-    subgraph LSPL["LSP reliable layer · over UDP"]
-        direction LR
-        W["Sliding window<br/>in-order · exactly-once"]
-        E["Epoch retransmit<br/>exp. backoff · heartbeat"]
-        CK["16-bit checksum"]
-    end
-    SC -. "all messages via LSP" .-> W
-    LSPL <--> UDP["UDP"]
+    LSPL["LSP reliable layer (UDP)<br/>window, exactly-once<br/>epoch retransmit + backoff<br/>heartbeat, 16-bit checksum"]
+    SC -. "all msgs via LSP" .-> LSPL
+    LSPL <-->|"datagrams"| UDP["UDP socket"]
     class CL client
     class SC control
     class M1,M2,M3 data
-    class W,E,CK store
+    class LSPL store
     class UDP ink
     classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
     classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
@@ -130,22 +127,22 @@ The goal of this project is to build a fully functioning Raft module in Go that 
 
 ### System Architecture
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee"}}}%%
 flowchart TB
     CLI["Service / client"]
-    subgraph CLUSTER["Raft cluster · RPC"]
+    subgraph CLUSTER["Raft cluster (RPC)"]
         direction LR
-        L["Leader<br/>append · replicate · commit"]
+        L["Leader<br/>append + replicate"]
         F1["Follower"]
         F2["Follower"]
-        L -->|"AppendEntries<br/>prevLogIndex / Term"| F1
+        L -->|"AppendEntries"| F1
         L -->|"AppendEntries"| F2
         F1 -.->|"vote / ack"| L
         F2 -.->|"vote / ack"| L
     end
-    CLI -->|command| L
+    CLI -->|"command"| L
     L --> LOG[("Replicated log")]
-    LOG -->|"majority ⇒ commit"| AP["applyCh → state machine"]
+    LOG -->|"majority => commit"| AP["applyCh<br/>state machine"]
     AP --> CLI
     class CLI client
     class L control
@@ -160,14 +157,13 @@ flowchart TB
 ```
 *Clients submit commands to the elected **leader**, which replicates log entries to followers via `AppendEntries`; once a majority persists an entry it is committed and applied in order through `applyCh`. Server roles transition on timeouts and terms:*
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"fontFamily":"ui-sans-serif, system-ui, sans-serif","lineColor":"#8f8b82","labelBackgroundColor":"#f6f4ee","primaryColor":"#dde5ee","primaryBorderColor":"#5b7290","primaryTextColor":"#2b3a4d"}}}%%
+%%{init: {"theme":"base","themeVariables":{"lineColor":"#8f8b82","labelBackgroundColor":"#f6f4ee","primaryColor":"#dde5ee","primaryBorderColor":"#5b7290","primaryTextColor":"#2b3a4d"}}}%%
 stateDiagram-v2
     [*] --> Follower
     Follower --> Candidate: election timeout
     Candidate --> Leader: majority votes
-    Candidate --> Follower: higher term / new leader
-    Candidate --> Candidate: split vote → retry
-    Leader --> Follower: higher term seen
+    Candidate --> Follower: higher term
+    Leader --> Follower: higher term
 ```
 
 > **Infra highlights:** implemented the Raft consensus algorithm end-to-end — randomized leader election, log replication with `(prevLogIndex, prevLogTerm)` consistency checks, majority-commit, and safe state-machine application — holding safety and liveness under crashes, message loss, and reordering. This is the same protocol behind etcd, Consul, and CockroachDB.
@@ -204,50 +200,54 @@ The project emphasizes scalable system design, actor-based concurrency, and even
 
 ### System Architecture
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee"}}}%%
 flowchart TB
-    subgraph CLNT["kvclient · load-balanced"]
+    subgraph CLNT["kvclient (load-balanced)"]
         C["Get / Put / List<br/>DNS-style routing"]
     end
-    subgraph SA["Server A · region 1"]
+    subgraph SA["Server A (region 1)"]
         direction LR
         A0["Query actor 0<br/>full replica"]
         A1["Query actor 1<br/>full replica"]
         A0 <-->|"local sync"| A1
     end
-    subgraph SB["Server B · region 2"]
+    subgraph SB["Server B (region 2)"]
         direction LR
         B0["Query actor 0"]
         B1["Query actor 1"]
         B0 <-->|"local sync"| B1
     end
-    C -->|RPC| A0
-    C -->|RPC| B0
+    C -->|"RPC"| A0
+    C -->|"RPC"| B0
     A0 -. "remote sync" .-> B0
     A0 --> KV[("KV + wall-clock ts")]
-    KV -.->|"conflict → LWW (ts, uid)"| KV
+    KV -.->|"LWW (ts, uid)"| KV
     class C client
     class A0,A1,B0,B1 data
     class KV store
     classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
     classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
     classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+    classDef ink fill:#ededec,stroke:#57534e,color:#292524;
 ```
 *Each server runs one **query actor per CPU core**, each holding a full replica and answering reads from local state for low latency. Actors converge through background **local sync** (same server) and **remote sync** (across regions), resolving conflicts by last-writer-wins on a wall-clock timestamp with an actor-uid tiebreaker. The client load-balances across servers/actors like DNS-based routing.*
 
 The actor runtime is shared-nothing — mailboxes + RPC, no locks or shared memory:
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee","fontFamily":"ui-sans-serif, system-ui, sans-serif"}}}%%
+%%{init: {"theme":"base","themeVariables":{"clusterBkg":"#f6f4ee","clusterBorder":"#dcd6c8","lineColor":"#8f8b82","edgeLabelBackground":"#f6f4ee"}}}%%
 flowchart LR
-    T["Tell(msg)"] --> MB[("Mailbox<br/>FIFO · unbounded")]
-    MB --> ACT["Actor.OnMessage<br/>sequential · shared-nothing"]
-    ACT -.->|"remote_tell · gob RPC"| REM["Remote actor"]
+    T["Tell(msg)"] --> MB[("Mailbox<br/>FIFO, unbounded")]
+    MB --> ACT["Actor.OnMessage<br/>sequential<br/>shared-nothing"]
+    ACT -.->|"remote_tell<br/>(gob RPC)"| REM["Remote actor"]
     class T client
     class MB store
     class ACT,REM data
     classDef client fill:#f4e3dc,stroke:#d97757,color:#7a3a22;
+    classDef control fill:#dde5ee,stroke:#5b7290,color:#2b3a4d;
     classDef data fill:#e3ede1,stroke:#6f9068,color:#2f4a2c;
     classDef store fill:#f1e7d3,stroke:#c9a961,color:#6b5426;
+    classDef ink fill:#ededec,stroke:#57534e,color:#292524;
 ```
 
 > **Infra highlights:** designed a geo-distributed, highly available NoSQL key-value store on an Akka-style actor model — shared-nothing concurrency, per-core replicas for horizontal scale, and eventually-consistent last-writer-wins replication across regions — directly engaging the availability/latency-vs-consistency tradeoffs at the heart of real distributed databases.
